@@ -1,0 +1,47 @@
+name: Build ImmortalWrt 25.12-rc2 AX6000
+
+on:
+  workflow_dispatch:
+
+env:
+  BRANCH: openwrt-25.12
+  DEVICE: xiaomi_redmi-ax6000
+  TARGET: ramips/mt798x
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential gcc g++ make libncurses5-dev libssl-dev \
+            git wget curl unzip bzip2 p7zip-full flex bison gawk python3-pip libelf-dev subversion
+
+      - name: 下载 ImmortalWrt 25.12-rc2
+        run: |
+          git clone --depth 1 -b ${{ env.BRANCH }} https://github.com/immortalwrt/immortalwrt openwrt
+          cd openwrt
+
+      - name: 注入配置与脚本
+        run: |
+          cd openwrt
+          cp -f ../diy-part2.sh ./
+          chmod +x diy-part2.sh
+          ./diy-part2.sh
+          cp -f ../ax6000.config .config
+          make defconfig
+
+      - name: 编译
+        run: |
+          cd openwrt
+          make -j$(nproc) download
+          make -j$(nproc)
+
+      - name: 上传固件
+        uses: actions/upload-artifact@v4
+        with:
+          name: AX6000-25.12-rc2
+          path: openwrt/bin/targets/${{ env.TARGET }}/*.bin
